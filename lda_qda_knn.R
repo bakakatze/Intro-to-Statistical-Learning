@@ -71,6 +71,122 @@ mean(glm.pred == Direction.2005)
 lda.fit = lda(Direction ~ Lag1 + Lag2, data = Smarket, subset = train)
 lda.fit
 
-# page 161
+# plot them
+plot(lda.fit)
+
+# let's use the LDA model we just built to predict the test dataset
+lda.pred = predict(lda.fit, Smarket.2005)
+
+lda.class = lda.pred$class
+table(lda.class, Direction.2005)
+
+mean(lda.class == Direction.2005)
+# 55.6% accuracy
+
+## But, we can do even more.
+# let's say we want to make decission ONLY if the posterior probability > .6
+sum(lda.pred$posterior[, 'Down'] > .6)
+
+# lol... none has the posterior probability > 60%
+max(lda.pred$posterior[, 'Down'])
+# the max is 52.02%.... sad
+
+#### 3. Quadratic Discriminant Analysis ####
+
+qda.fit = qda(Direction ~ Lag1 + Lag2, data = Smarket, subset = train)
+qda.fit
+
+
+qda.class = predict(qda.fit, Smarket.2005)$class
+table(qda.class, Direction.2005)
+
+mean(qda.class == Direction.2005)
+# almost 60% accuracy!
+# but this is a small sample of dataset
+
+#### 4. K-Nearest Neighbours ####
+
+require(class) # to do K-nearest neighbours algorithm
+
+# get the Lag1 and Lag2 and split them into train and test
+train.X = cbind(market_direction$Lag1, market_direction$Lag2)[train,]
+test.X = cbind(market_direction$Lag1, market_direction$Lag2)[!train,]
+
+train.Direction = market_direction$Direction[train]
+
+# let's use the knn()
+set.seed(1)
+
+knn.pred = knn(train.X, test.X, train.Direction, k = 1)
+table(knn.pred, Direction.2005)
+
+(83+43)/252 # 50% accuracy using k = 1, LOL!
+
+
+# let's use k = 3
+knn.pred = knn(train.X, test.X, train.Direction, k = 3)
+table(knn.pred, Direction.2005)
+
+mean(knn.pred == Direction.2005) # 53%.. meh
+
+#
+## We will apply knn algorithm to Caravan Insurance Data
+
+dim(Caravan)
+
+attach(Caravan)
+
+# Only 6% purchase the Caravan insurance in this dataset
+summary(Purchase)
+
+## !! important caveats:
+# KNN classifier measure on a larger scale will have larger effect
+# $100 difference is larger than 10 years old difference as far as KNN can tell regardless of what outcome you are measuring.
+
+# So, in order to handle this, it's best to scale all variables so that they have a mean of 0 and a standard deviation of 1
+standardised.X= scale(Caravan[, -86])
+
+# let's split the observations into a test set (first 1000 obs)
+
+test = 1:1000
+
+train.X= standardised.X[-test, ]
+test.X = standardised.X[test, ]
+
+train.Y = Purchase[-test]
+test.Y = Purchase[test]
+
+set.seed(1)
+
+knn.pred = knn(train.X, test.X, train.Y, k = 1)
+
+mean(test.Y != knn.pred) 
+# error rate of 11.8%
+# don't get too excited because the buying insurance rate was 6%, so if you make an algorithm that says "no" all the time
+# the error rate will be 6% (which is useless)
+
+table(knn.pred, test.Y)
+
+9/(9+68)
+# the positive predictive value is 11.7%
+# this is an improvement from random guessing (6%)!!
+
+# K = 3 --> 19%
+# K = 5 --> 26.7% !!
+
+
+## Let's compare it with log regression
+glm.fits = glm(Purchase ~ ., data = Caravan, family = binomial, subset = -test)
+
+glm.probs = predict(glm.fits, Caravan[test, ], type = "response")
+
+# let's set the probability cutoff of buying insurance at .25
+glm.pred = rep("No", 1000)
+glm.pred[glm.probs >.25] = "Yes"
+
+table(glm.pred, test.Y)
+
+11/(22+11)
+# 33.33% !!
 
 
